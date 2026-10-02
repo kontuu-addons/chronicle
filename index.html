@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chronicle Devlog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Marcellus&family=Alegreya:ital,wght@0,400;0,500;0,700;1,400&display=swap">
+<style>
+  /* A WoW quest window: dark stone frame, gold trim, parchment pages, red buttons, a tooltip for the footer */
+  :root {
+    --void: #0b0806;
+    --stone: #1d1712;
+    --stone-2: #2a2119;
+    --trim: #a07a2c;
+    --trim-hi: #e2c26a;
+    --wow-gold: #ffd100;
+    --parch: #ead7ab;
+    --parch-2: #dcc28a;
+    --parch-edge: #b8955a;
+    --ink: #2b1a0b;
+    --ink-soft: #5e4424;
+    --red: #8e1a10;
+    --red-dk: #4f0b05;
+    --xp: #8a55c9;
+    --xp-dk: #4b2478;
+    --tip: #0a0b1c;
+    --tip-edge: #8b8b99;
+    --title: "Cinzel", "Trajan Pro", Georgia, serif;
+    --ui: "Marcellus", "Friz Quadrata", Georgia, serif;
+    --body: "Alegreya", "Palatino Linotype", Georgia, serif;
+    color-scheme: dark;
+  }
+  /* the game has one look, day or night: the dark-mode palette only softens the parchment a touch */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --parch: #e3cfa1; --parch-2: #d3b87e; }
+  }
+  :root[data-theme="dark"] { --parch: #e3cfa1; --parch-2: #d3b87e; }
+
+  * { box-sizing: border-box; }
+  html { background: var(--void); }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(160,122,44,.18), transparent 55%),
+      radial-gradient(ellipse at 50% 120%, rgba(90,30,10,.25), transparent 60%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.012) 0 2px, transparent 2px 6px),
+      var(--void);
+    color: var(--parch);
+    font: 18px/1.6 var(--body);
+    padding: 0 16px 64px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  .prose { max-width: 68ch; }
+  code { font: 15px var(--ui); background: rgba(43,26,11,.1); padding: 1px 5px; border-radius: 3px; }
+  a { color: var(--red); }
+
+  /* ---------- a framed window (header, scope, every chapter) ---------- */
+  header.top, .scope, .chapter {
+    position: relative;
+    margin-top: 34px;
+    background: linear-gradient(var(--parch), var(--parch-2));
+    color: var(--ink);
+    border: 3px solid var(--void);
+    border-radius: 6px;
+    box-shadow:
+      0 0 0 2px var(--trim),
+      0 0 0 5px var(--stone),
+      0 0 0 6px #000,
+      0 18px 40px -12px rgba(0,0,0,.9),
+      inset 0 0 60px rgba(120,80,30,.35),
+      inset 0 0 0 1px var(--parch-edge);
+  }
+
+  /* ---------- the title window ---------- */
+  header.top {
+    margin-top: 40px;
+    padding: 0 28px 28px;
+    display: grid;
+    gap: 16px;
+    text-align: center;
+  }
+  .eyebrow {
+    margin: 0 -28px;
+    padding: 10px 16px;
+    background: linear-gradient(var(--stone-2), var(--stone));
+    border-bottom: 2px solid var(--trim);
+    color: var(--wow-gold);
+    font: 15px/1.2 var(--ui);
+    letter-spacing: .04em;
+    text-shadow: 0 1px 0 #000;
+    border-radius: 3px 3px 0 0;
+  }
+  h1 {
+    margin: 6px 0 0;
+    font: 900 clamp(54px, 12vw, 108px)/.95 var(--title);
+    color: var(--ink);
+    letter-spacing: .02em;
+    text-shadow: 0 1px 0 rgba(255,255,255,.35);
+  }
+  h1 em { font-style: normal; color: var(--red); }
+  .lede {
+    margin: 0 auto;
+    max-width: 46ch;
+    font: italic 400 clamp(19px, 2.6vw, 22px)/1.45 var(--body);
+    color: var(--ink-soft);
+  }
+
+  /* the numbers, as reward slots */
+  .ledger, .scope-total {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 6px;
+    text-align: left;
+  }
+  .ledger div, .scope-total div {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    align-items: center;
+    padding: 6px 8px 6px 6px;
+    background: rgba(43,26,11,.08);
+    border: 1px solid rgba(94,68,36,.35);
+    border-radius: 4px;
+  }
+  .ledger div::before, .scope-total div::before {
+    content: "✦";
+    display: grid; place-items: center;
+    font: 20px/1 var(--title); color: var(--trim-hi); text-shadow: 0 0 6px rgba(226,194,106,.6);
+    grid-row: 1 / span 2;
+    width: 44px; height: 44px;
+    border-radius: 4px;
+    border: 2px solid var(--trim);
+    box-shadow: inset 0 0 0 2px #000, inset 0 0 14px rgba(226,194,106,.35);
+    background: radial-gradient(circle at 35% 30%, #5a4426, #1a120a 70%);
+  }
+  .ledger b, .scope-total b {
+    font: 700 22px/1.1 var(--title);
+    color: var(--ink);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+  .ledger span, .scope-total span { font: 14px/1.3 var(--ui); color: var(--ink-soft); }
+
+  /* ---------- the finished addon ---------- */
+  .scope { padding: 0 28px 28px; display: grid; gap: 18px; }
+  .scope .asof {
+    margin: 0 -28px;
+    padding: 10px 16px;
+    background: linear-gradient(var(--stone-2), var(--stone));
+    border-bottom: 2px solid var(--trim);
+    color: var(--wow-gold);
+    font: 15px/1.2 var(--ui);
+    text-align: center;
+    text-shadow: 0 1px 0 #000;
+    border-radius: 3px 3px 0 0;
+  }
+  .scope h2, .chapter h2 {
+    margin: 0 0 12px;
+    font: 700 clamp(26px, 3.8vw, 36px)/1.1 var(--title);
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .scope-rows { display: grid; gap: 12px; }
+  .scope-row { display: grid; grid-template-columns: minmax(150px, 210px) 1fr auto; gap: 14px; align-items: center; }
+  .scope-row .label { font: 700 16px/1.25 var(--body); }
+  .scope-row .label small { display: block; font: 13px var(--ui); color: var(--ink-soft); }
+  .scope-row .fig { font: 14px/1.3 var(--ui); color: var(--ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .scope-row .fig b { color: var(--ink); }
+  /* progress: the experience bar */
+  .track, .bar {
+    position: relative;
+    height: 12px;
+    background: #120c1c;
+    border: 1px solid #000;
+    box-shadow: 0 0 0 1px var(--trim), inset 0 1px 3px #000;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .track i, .bar i {
+    position: absolute; inset: 0 auto 0 0;
+    min-width: 2px;
+    background: linear-gradient(var(--xp), var(--xp-dk));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .track::after, .bar::after { /* the bar's segment ticks */
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(90deg, transparent 0 calc(5% - 1px), rgba(0,0,0,.55) calc(5% - 1px) 5%);
+  }
+  .bar { height: 8px; }
+
+  /* ---------- chapters: one quest window each ---------- */
+  .chapter { display: grid; grid-template-columns: 1fr; gap: 0; padding: 0; }
+  .when {
+    position: relative;
+    padding: 10px 52px;
+    background: linear-gradient(var(--stone-2), var(--stone));
+    border-bottom: 2px solid var(--trim);
+    border-radius: 3px 3px 0 0;
+    text-align: center;
+  }
+  .when .num { font: 15px/1.2 var(--ui); color: var(--wow-gold); letter-spacing: .05em; text-shadow: 0 1px 0 #000; }
+  .when::after { /* the close button */
+    content: "\2715";
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    width: 24px; height: 24px;
+    display: grid; place-items: center;
+    font: 700 13px/1 var(--ui);
+    color: var(--wow-gold);
+    background: linear-gradient(#a3241a, #5c0d07);
+    border: 2px solid var(--trim-hi);
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px #000;
+  }
+  .body { display: grid; gap: 20px; min-width: 0; padding: 24px 28px 28px; }
+  .chapter p { margin: 0 0 12px; }
+  .chapter p:last-child { margin-bottom: 0; }
+
+  /* Quest Objectives */
+  .objectives {
+    list-style: none; margin: 0; padding: 14px 0 0;
+    display: grid; gap: 6px;
+    font-size: 17px;
+    border-top: 1px solid rgba(94,68,36,.35);
+  }
+  .objectives::before {
+    content: "Quest Objectives";
+    font: 700 20px/1 var(--title);
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .objectives li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: start; }
+  .objectives li::before {
+    content: ""; width: 11px; height: 11px; margin-top: 7px; justify-self: center;
+    border: 2px solid var(--ink-soft); transform: rotate(45deg);
+  }
+  .objectives li.done { color: var(--ink-soft); }
+  .objectives li.done::before { background: var(--trim); border-color: var(--trim); }
+  .objectives li.done::after { content: none; }
+
+  /* quoted game text and lessons: a page tucked into the window */
+  .parchment {
+    background: rgba(255,248,225,.45);
+    color: var(--ink);
+    border: 1px solid var(--parch-edge);
+    border-left: 4px solid var(--trim);
+    padding: 14px 18px;
+    font: italic 400 18px/1.5 var(--body);
+    border-radius: 2px;
+  }
+  .parchment .who { display: block; font: 15px/1 var(--ui); font-style: normal; color: var(--red); margin-bottom: 8px; }
+  .parchment.lesson { font-style: normal; font-size: 17px; }
+  .parchment.lesson b { font-weight: 700; }
+
+  /* screenshots in a dark frame */
+  figure { margin: 0; display: grid; gap: 8px; }
+  figure img {
+    display: block; width: 100%; max-width: 100%; height: auto;
+    background: #000;
+    border: 2px solid var(--void);
+    box-shadow: 0 0 0 2px var(--trim), 0 8px 18px -8px rgba(0,0,0,.8);
+    border-radius: 3px;
+  }
+  figcaption { font: italic 15px/1.45 var(--body); color: var(--ink-soft); }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; align-items: start; }
+  .shots.narrow figure img { max-width: 420px; }
+
+  /* Listen: the red button from the quest frame */
+  .listen-list { display: grid; gap: 10px; }
+  .listen {
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center;
+    padding: 10px 14px;
+    background: rgba(43,26,11,.08);
+    border: 1px solid rgba(94,68,36,.35);
+    border-radius: 4px;
+  }
+  .listen button {
+    font: 15px/1 var(--ui);
+    color: var(--wow-gold);
+    text-shadow: 0 1px 0 #000;
+    background: linear-gradient(#a3241a, var(--red) 45%, var(--red-dk));
+    border: 2px solid var(--trim);
+    border-radius: 4px;
+    padding: 8px 14px;
+    min-width: 92px;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .listen button:hover { filter: brightness(1.18); border-color: var(--trim-hi); }
+  .listen button:active { transform: translateY(1px); }
+  .listen button:focus-visible { outline: 2px solid var(--wow-gold); outline-offset: 2px; }
+  .listen .meta { display: grid; gap: 6px; min-width: 0; }
+  .listen .title { font: 700 17px/1.3 var(--body); }
+  .listen .title small { font: 400 14px var(--ui); color: var(--ink-soft); }
+
+  .chip {
+    display: inline-block; vertical-align: middle;
+    font: 13px/1 var(--ui);
+    padding: 5px 8px;
+    color: var(--wow-gold);
+    background: var(--stone);
+    border: 1px solid var(--trim);
+    border-radius: 3px;
+  }
+
+  /* build output: the chat frame */
+  .log {
+    font: 14px/1.6 var(--ui);
+    background: rgba(0,0,0,.82);
+    color: #ffff9f;
+    border: 1px solid #000;
+    box-shadow: 0 0 0 1px var(--trim);
+    border-radius: 3px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .log b { color: #40c0ff; font-weight: 400; }
+
+  /* comparison table, like a reward list */
+  .table-wrap { overflow-x: auto; }
+  table.compare { border-collapse: collapse; width: 100%; font-size: 16px; }
+  table.compare th, table.compare td { text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(94,68,36,.35); vertical-align: top; }
+  table.compare th { font: 700 15px/1.2 var(--title); color: var(--ink); }
+  table.compare td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.compare tr.win td { background: rgba(160,122,44,.22); font-weight: 700; }
+
+  /* footer: a tooltip */
+  footer {
+    margin-top: 34px;
+    padding: 14px 16px;
+    background: rgba(10,11,28,.94);
+    border: 2px solid var(--tip-edge);
+    border-radius: 6px;
+    color: #fff;
+    font: 15px/1.5 var(--ui);
+  }
+  footer p { margin: 0 0 8px; }
+  footer a { color: var(--wow-gold); }
+
+  @media (max-width: 680px) {
+    body { font-size: 17px; }
+    header.top, .scope { padding-inline: 16px; }
+    .eyebrow, .scope .asof { margin-inline: -16px; }
+    .body { padding: 18px 16px 22px; }
+    .scope-row { grid-template-columns: 1fr auto; }
+    .scope-row .track { grid-column: 1 / -1; grid-row: 2; }
+    .listen { grid-template-columns: 1fr; }
+    .listen button { justify-self: start; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Devlog by Kontuu · WoW: Forever beta</div>
+    <h1>Chron<em>icle</em></h1>
+    <p class="lede">My idea: make the story of Azeroth easy to follow, and let every quest giver speak for themselves.</p>
+    <div class="ledger" aria-label="Where it stands">
+      <div><b>4,245</b><span>classic quests imported</span></div>
+      <div><b>720</b><span>story chapters written</span></div>
+      <div><b>3,678</b><span>quest recaps</span></div>
+      <div><b>2,017</b><span>NPCs with a voiced greeting</span></div>
+      <div><b>1,921</b><span>lines NPCs say in the world</span></div>
+      <div><b>677</b><span>character bios</span></div>
+      <div><b>384</b><span>books and plaques, 1,207 pages</span></div>
+      <div><b>~23,000</b><span>voice lines in the render queue</span></div>
+    </div>
+  </header>
+
+  <section class="scope" id="scope" aria-labelledby="scope-title">
+    <div class="asof">The finished addon</div>
+    <h2 id="scope-title">What Chronicle will hold</h2>
+    <div class="scope-total">
+      <div><b>23,963</b><span>voice lines for the classic game</span></div>
+      <div><b>~102 h</b><span>of speech</span></div>
+      <div><b>3,024</b><span>speakers, from 58 designed voices</span></div>
+      <div><b>54</b><span>voice packs</span></div>
+      <div><b>~1.55 GB</b><span>download, all packs</span></div>
+      <div><b>~73 h</b><span>of rendering left on one RTX 3080</span></div>
+    </div>
+    <div class="scope-rows" aria-label="Voice lines by type, voiced so far out of the total">
+      <div class="scope-row"><span class="label">Quest dialogue<small>57.7 hours</small></span><div class="track"><i style="width:4.3%"></i></div><span class="fig"><b>485</b> / 11,299</span></div>
+      <div class="scope-row"><span class="label">NPC greetings<small>11.7 hours</small></span><div class="track"><i style="width:6.6%"></i></div><span class="fig"><b>332</b> / 5,042</span></div>
+      <div class="scope-row"><span class="label">Narrator recaps<small>18.4 hours</small></span><div class="track"><i style="width:2.9%"></i></div><span class="fig"><b>108</b> / 3,678</span></div>
+      <div class="scope-row"><span class="label">World speech<small>2.1 hours</small></span><div class="track"><i style="width:1.2%"></i></div><span class="fig"><b>23</b> / 1,921</span></div>
+      <div class="scope-row"><span class="label">Books and plaques<small>8.8 hours, 1,207 pages</small></span><div class="track"><i style="width:0%"></i></div><span class="fig"><b>0</b> / 1,207</span></div>
+      <div class="scope-row"><span class="label">Chapter intros<small>3.2 hours</small></span><div class="track"><i style="width:3.2%"></i></div><span class="fig"><b>23</b> / 720</span></div>
+      <div class="scope-row"><span class="label">Your character<small>96 short lines</small></span><div class="track"><i style="width:0%"></i></div><span class="fig"><b>0</b> / 96</span></div>
+    </div>
+    <p class="prose" style="margin:0;color:var(--ink-soft)">Text alongside the voices: 720 story chapters, 3,678 recaps and 677 character bios, all written. Still to come on top: the roughly 1,800 quests that are new in WoW: Forever, voiced as players record them.</p>
+  </section>
+
+  <!-- I -->
+  <section class="chapter" id="idea">
+    <div class="when"><span class="num">Chapter I</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The idea</h2>
+        <p>WoW: Forever, the new Classic+ version, was in beta, and I had access. I wanted an addon that makes the lore easy to follow: it knows which quests you have done, sums up the story so far, and reads the quests aloud.</p>
+        <p>All of it turned out to be possible, with one catch. Addons run in a sandbox without internet access, so the voices can't be made while you play. They have to be rendered ahead of time and shipped with the addon.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Track completed quests (the game already tells addons this)</li>
+        <li class="done">Story recaps, written ahead of time</li>
+        <li class="done">Voiceover, rendered ahead of time and bundled</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- II -->
+  <section class="chapter" id="first-build">
+    <div class="when"><span class="num">Chapter II</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The first build</h2>
+        <p>The beta install turned out to live in <code>_classic_beta_</code>, client 1.60.1, Interface 16001. Since WoW: Forever quests are new content, the first version recorded quest text in game and voiced it afterwards on the PC, with the free Kokoro voice model running on the RTX 3080.</p>
+        <p>The very first line it spoke was a made-up one, just to hear if it worked.</p>
+      </div>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/kokoro_narrator.mp3"><button type="button">Listen</button><div class="meta"><span class="title">The first voice test <small>Kokoro narrator</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <figure>
+        <img src="img/1.png" alt="The first journal: one chapter called Unknown lands with 16 quests in progress" loading="lazy">
+        <figcaption>First look in game. It worked, but everything landed in "Unknown lands", because quests picked up from the quest log had no zone.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- III -->
+  <section class="chapter" id="history">
+    <div class="when"><span class="num">Chapter III</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>A level 8 paladin</h2>
+        <p>My test character, a paladin, was already level 8, and none of that history showed up. The fix: the client lists every quest a character has completed, so the journal filled in everything done before the addon was installed.</p>
+      </div>
+      <figure>
+        <img src="img/2.png" alt="The journal showing a chapter called Before the journal with 46 completed quests" loading="lazy">
+        <figcaption>46 quests appeared under "Before the journal". The voices already played; the text was still missing.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- IV -->
+  <section class="chapter" id="for-everyone">
+    <div class="when"><span class="num">Chapter IV</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>Voiced from the start, for everyone</h2>
+        <p>I didn't want anyone to type commands: the addon should have voiceover from the get-go. That changed the whole design. Instead of recording first, the classic quests came from the open cMaNGOS database, which has all 4,245 of them with their original text and who gives them. Each NPC's model tells their race and gender, so Coleman Farthing gets a Forsaken man's voice and Deathguard Linnea a Forsaken woman's.</p>
+        <p>The voices ship as one addon per zone, so players only download what they need. New WoW: Forever quests still come from recordings, which is how Wowhead gets its data too.</p>
+      </div>
+      <div class="parchment lesson"><b>A line I didn't cross.</b> Wowhead has the new quest text, but it is their collected data and Blizzard's writing. Scraping it would break their terms and put the addon at risk of a takedown. Lorekeeper collects the text the same way Wowhead's own client does: from the game, while people play.</div>
+    </div>
+  </section>
+
+  <!-- V -->
+  <section class="chapter" id="lore">
+    <div class="when"><span class="num">Chapter V</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>Writing the story</h2>
+        <p>The story recaps were written zone by zone to a strict brief: spoiler-safe, in the second person, never copying the quest text, and written to be read aloud. A validator checked every one. Levels 1 to 30 came first, then the rest of the game, including dungeons, raids, battlegrounds, class quests and holidays.</p>
+      </div>
+      <div class="parchment">
+        <span class="who">Chapter · Risen at Deathknell</span>
+        You awaken in a crypt at Deathknell, freed from the Lich King's will but cold, confused and dead. The Forsaken who greet you have a war to fight and little patience for the newly risen.
+      </div>
+      <div class="parchment">
+        <span class="who">Recap · A New Plague</span>
+        Johaan laced one of the pumpkins with his latest formula and had you deliver it to a captured Scarlet Zealot held in the cellar of the Gallows End Tavern. The starving prisoner welcomed the meal eagerly, unaware he was a test subject for Forsaken alchemy.
+      </div>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/narrator_recap.mp3"><button type="button">Listen</button><div class="meta"><span class="title">A recap, read by the narrator <small>Deaths in the Family, final Qwen voice</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VI -->
+  <section class="chapter" id="voices">
+    <div class="when"><span class="num">Chapter VI</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The hunt for the right voice</h2>
+        <p>Kokoro was fast but flat. My first reaction: "It sounds like an orc, but there's a robotic reverb on it." The pitch trick causing the reverb was replaced, and then three engines went head to head on the same nine characters: an orc, a tauren, two Forsaken, a dwarf, a night elf, a gnome, a goblin and a troll.</p>
+      </div>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/voices_kokoro_first.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Round 1: Kokoro, random voices <small>nine characters</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/voices_kokoro_races.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Round 2: Kokoro with designed race voices <small>reverb removed</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/voices_chatterbox.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Round 3: Chatterbox <small>the same voices, with emotion</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/voices_qwen_design.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Round 4: Qwen3 voice design <small>voices made from written descriptions</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <div class="prose"><p>Qwen won. The last question was delivery: calm and natural, or acted like a video game performance? I picked the calm one.</p></div>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/coleman_calm.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Coleman Farthing, calm <small>the one I picked</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/coleman_acted.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Coleman Farthing, acted <small>the one that wasn't</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <div class="table-wrap">
+        <table class="compare">
+          <thead><tr><th>Engine</th><th>Strength</th><th>Speed on an RTX 3080</th></tr></thead>
+          <tbody>
+            <tr><td>Kokoro</td><td>Clean, reliable, fixed voices</td><td class="num">~25× realtime</td></tr>
+            <tr><td>Chatterbox</td><td>Emotion control, voice cloning</td><td class="num">~3 s per line</td></tr>
+            <tr class="win"><td>Qwen3 TTS</td><td>Voices designed from descriptions, natural delivery</td><td class="num">~1.4× realtime</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- VII -->
+  <section class="chapter" id="render">
+    <div class="when"><span class="num">Chapter VII</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The long render</h2>
+        <p>Qwen sounded best and was also the slowest. About 70 hours of speech had to be rendered on one gaming GPU, and the first attempts went wrong in instructive ways.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Batches were half empty, because each voice was rendered separately. Fix: mix voices in one batch.</li>
+        <li class="done">Long lines overflowed the 10 GB of video memory and crawled through system RAM. Fix: batches capped by text length.</li>
+        <li class="done">The build died whenever its window closed. Fix: a Windows scheduled task that resumes by itself.</li>
+        <li class="done">It kept the GPU when the game started. Fix: a watchdog that saves and steps aside within ten seconds, for any WoW client.</li>
+        <li class="done">Console windows kept flashing on screen. "Was a bit annoying XD." Fix: every helper now runs without a window.</li>
+      </ul>
+      <div class="log">=== build started ===
+synced: 64 recorded quests (0 new)
+wrote Lore.lua: <b>720 arcs, 3678 quest recaps</b>, 3678 quest zones, 2598 speakers
+<b>21265 lines to render with qwen</b>
+  WoW is running: pausing so the game gets the GPU
+  WoW closed: continuing</div>
+    </div>
+  </section>
+
+  <!-- VIII -->
+  <section class="chapter" id="in-game">
+    <div class="when"><span class="num">Chapter VIII</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>Testing in Tirisfal</h2>
+        <p>I made a fresh undead mage and walked out of the crypt at Deathknell. At first it seemed nothing spoke on turn-in. A debug mode showed it had in fact played: the window on screen was Sarvis's greeting, which wasn't voiced yet. So greetings became the next feature.</p>
+      </div>
+      <figure>
+        <img src="img/4.webp" alt="The turn-in window for Rude Awakening, the talking head frame showing Shadow Priest Sarvis, and debug lines in chat" loading="lazy">
+        <figcaption>The turn-in, with the talking head showing Sarvis and the chat saying "play q363_complete.ogg -> playing".</figcaption>
+      </figure>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/sarvis_turnin.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Shadow Priest Sarvis <small>Rude Awakening, turn-in</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/sarvis_greeting.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Shadow Priest Sarvis <small>his greeting, voiced later</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/zygand_greeting.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Executor Zygand <small>quest greeting in Brill</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <div class="shots">
+        <figure>
+          <img src="img/5.png" alt="Shadow Priest Sarvis's greeting window" loading="lazy">
+          <figcaption>"This got read." The greeting, matched on screen even with "mage" filled in.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/6.png" alt="The Glyphic Scroll quest window from Shadow Priest Sarvis" loading="lazy">
+          <figcaption>Glyphic Scroll was silent: class quests were filed at the back of the queue. They now go with their quest giver's zone.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/7.webp" alt="A Light in the Darkness, a new WoW: Forever quest from Aramis Hammerhand" loading="lazy">
+          <figcaption>A Light in the Darkness: new in WoW: Forever, recorded the moment it opened. It also showed that recorded text carries the reader's class ("Greetings, mage"), which the builder now neutralizes.</figcaption>
+        </figure>
+      </div>
+      <div class="parchment lesson"><b>My verdict after the first test:</b> "I love the journal design, the Characters tab, the quest log Listen button. The narrator's recap is awesome."</div>
+    </div>
+  </section>
+
+  <!-- IX -->
+  <section class="chapter" id="now">
+    <div class="when"><span class="num">Chapter IX</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>Version 0.4.0</h2>
+        <p>By then the addon had grown well past the first idea.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Quest voices in each quest giver's own voice, with a 3D talking head</li>
+        <li class="done">The narrator's recap after every turn-in, and "Previously in…" when you return to a zone</li>
+        <li class="done">A journal with story chapters, a Characters tab, search, and pins on the world map</li>
+        <li class="done">Greetings for about 2,000 NPCs, replaying after a cooldown</li>
+        <li class="done">Books, letters and plaques read aloud</li>
+        <li class="done">Your own character's short reactions after turn-ins</li>
+        <li class="done">A marker for quests <span class="chip">New in WoW: Forever</span> and recording of their text for everyone</li>
+        <li>Levels 1 to 30 fully voiced, then release on CurseForge as 1.0.0</li>
+        <li>Levels 30 to 60 after that, rendering whenever the PC is idle</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- X -->
+  <section class="chapter" id="world">
+    <div class="when"><span class="num">Chapter X</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The world starts talking</h2>
+        <p>"It didn't read the first window." Voicing only quest pages wasn't enough; NPCs should speak whenever they have something to say. The last stretch of the day went into everything around the quests.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Greetings for every NPC with a greeting window: trainers, innkeepers, guards, vendors. Class trainers greet each class differently, and all versions are voiced.</li>
+        <li class="done">1,921 lines NPCs say out loud in the world, from guards to Hogger, matched to who says them. They never talk over quest dialogue.</li>
+        <li class="done">Books, letters and plaques read aloud, page by page</li>
+        <li class="done">Your own character reacting after some turn-ins, in a voice for your race and gender</li>
+        <li class="done">Story chapters as pins on the world map</li>
+        <li class="done">Subtitles under the talking head, and a "Play zone story" audiobook button</li>
+        <li class="done">677 spoiler-safe character bios on the Characters page</li>
+        <li class="done">Recordings swap automatically between party members, read by a strict parser that never runs anything it receives</li>
+        <li class="done"><code>/lore report</code> to flag a mispronounced name</li>
+      </ul>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/g2124_2.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Isabella <small>undead mage trainer, greeting a mage</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/say1506_1.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Scarlet Convert <small>world speech, Tirisfal Glades</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/say1540_2.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Scarlet Vanguard <small>world speech, Tirisfal Glades</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <div class="parchment">
+        <span class="who">Character bio · Coleman Farthing</span>
+        Coleman Farthing is a Forsaken who once worked the Agamand Mills before the plague claimed him along with his proud employers. Now he sits in the Gallows' End Tavern in Brill, nursing a bitter grudge against the Agamand family and seeking a capable fighter to carry out his revenge.
+      </div>
+      <div class="parchment lesson"><b>On spoilers.</b> The journal only shows chapters and quests you have started, recaps appear after you finish a quest and cover only what has happened so far, and bios describe characters as you first meet them. Twists like Lady Prestor's secret are left out on purpose.</div>
+    </div>
+  </section>
+
+  <!-- XI -->
+  <section class="chapter" id="neighbours">
+    <div class="when"><span class="num">Chapter XI</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>Checking the neighbours</h2>
+        <p>A look at what else exists turned up several voice addons, some made for WoW: Forever in the same week, and a few lore journals. None of them combine the two: voiced quests without any story, or story journals without any voice. Nobody else narrates your own progress, voices greetings, world speech and books, or records new quests and shares them with the party.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="compare">
+          <thead><tr><th>Addon</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td>VoiceOver Forever</td><td>Voiced quests for WoW: Forever, quests only</td></tr>
+            <tr><td>VoiceOver (Classic)</td><td>The big classic voice addon, over a million downloads</td></tr>
+            <tr><td>Spoken Quests, Forever Voiceover, Forever TTS</td><td>Quest voices, some by race and gender, one with the built-in robot voice</td></tr>
+            <tr><td>Story Mode</td><td>Curated quest chains with recaps and key characters, no voice</td></tr>
+            <tr><td>Storyline, LoreJournal, BtWQuests</td><td>Quest presentation and lore text, no voice</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="parchment lesson"><b>The name is taken.</b> A popular addon called Lorekeeper already exists on CurseForge, collecting in-game book texts. Two addons can't share a folder name, so I renamed the project: <b>Chronicle</b> in game, with the folder name ForeverChronicle so it can't collide with the other addons that use the word. The journal data, recordings and all 42 finished voice packs carried over.</div>
+    </div>
+  </section>
+
+  <!-- XII -->
+  <section class="chapter" id="night">
+    <div class="when"><span class="num">Chapter XII</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The night shift</h2>
+        <p>While I slept and the PC kept rendering, the whole addon got a careful code review, looking for anything that would only break in the game.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Privacy: letters written by other players use the same reading window as books. They are now never recorded, shared or read aloud.</li>
+        <li class="done">Sharing now sends only new WoW: Forever content, not classic quests that are merely waiting in the render queue</li>
+        <li class="done">Recording of unknown greetings, books and NPC speech is capped, so saved data can't grow without end</li>
+        <li class="done">The Characters tab could mix up a person's quests because list positions and quest IDs shared one table</li>
+        <li class="done">A problem in the talking head can no longer leave the voice stuck in a "talking" state</li>
+        <li class="done"><code>/lore status</code> shows memory use, and other voice addons get a one-time heads-up</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- XIII -->
+  <section class="chapter" id="beta">
+    <div class="when"><span class="num">Chapter XIII</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>Getting ready for the beta</h2>
+        <p>Only about five quests had been played through end to end, so the first public version will be a <b>beta</b>: 1.0.0-beta.1, uploaded as CurseForge's "Beta" type. The name "Chronicle" is already crowded on CurseForge, so the project page will be called <b>Chronicle: Voices of Azeroth</b>. All voices together are too big for one download, so it ships as four projects: the addon itself (about 5 MB), Voices of Kalimdor (about 210 MB), Voices of the Eastern Kingdoms (about 250 MB) and Books &amp; Adventures (about 200 MB). The CurseForge app installs the voice projects automatically with the addon, so voice still works from the start. The project page, changelog, readme, GPL license and a step-by-step upload checklist are ready.</p>
+        <p>A second review, this time thinking of strangers rather than friends, found the biggest issue in party sync. It accepted messages from anyone on any channel, including whispers from people outside your group, and stored whatever arrived. Nothing could run as code, but a bad record could break the journal every session and spread to everyone you grouped with afterwards.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Party sync now only accepts data from people in your party. Every record is rebuilt field by field from an allow-list, with size limits.</li>
+        <li class="done">Party sync sends slowly enough for the server's message limit and resends pieces that were dropped. It only passes on your own recordings, never ones it received from others.</li>
+        <li class="done">A party member sharing a quest with you is no longer recorded as its quest giver (a privacy fix)</li>
+        <li class="done">Female characters could hit a Lua error on some book pages</li>
+        <li class="done">NPC greetings no longer cut off the turn-in line, your character's reaction or the recap</li>
+        <li class="done">On non-English game clients, Chronicle stays quiet instead of recording text in that language</li>
+        <li class="done">Existing characters no longer send thousands of quest lookups to the server at every login</li>
+        <li class="done">A welcome message on first login; a note when a zone's voice pack is missing or turned off; <code>/chronicle</code> as a second command; <code>/lore report</code> notes now go out with <code>/lore share</code></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- XIV -->
+  <section class="chapter" id="tidy">
+    <div class="when"><span class="num">Chapter XIV</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>Tidying up, and counting what's new</h2>
+        <p>The AddOns list had grown to about 46 Chronicle entries, one per zone. The zones were folded into three packs instead: <b>Voices of Kalimdor</b>, <b>Voices of the Eastern Kingdoms</b> and <b>Books &amp; Adventures</b>, each with its own icon. Every zone keeps its own folder inside its pack. All 10,786 finished recordings were moved, not rendered again, and the render picked up exactly where it had paused.</p>
+        <p>A small scanner then asked the game for the title of every quest ID in WoW: Forever's range. It found <b>728 quests that were not in Classic</b>. The game only reveals titles this way, not the spoken text, so voicing them still depends on players opening them. But now there is a checklist to measure that against.</p>
+        <p>Back in game after work, I found the rough edges. Long quest text was cut off in the talking head, and the "New in WoW: Forever" marker hid behind the portrait. The journal also listed Tirisfal Glades twice.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Subtitles now page through long text in step with the voice</li>
+        <li class="done">The "New in WoW: Forever · voice coming soon" marker sits where the Listen button would be</li>
+        <li class="done">One heading per zone in the journal, and "Met in…" under new NPCs</li>
+        <li class="done">Characters: drag to turn the model, scroll to zoom, the model talks while "Hear them" plays (their greeting first), clickable dealings that open the quest's chapter, and a list grouped by zone</li>
+        <li class="done">Memory measured in game: 9.6 MB, light next to the big questing addons</li>
+      </ul>
+      <div class="shots">
+        <figure>
+          <img src="img/8.png" alt="The AddOns list with Chronicle and its three voice packs grouped underneath" loading="lazy">
+          <figcaption>Four entries instead of forty-six. The red question marks got proper icons soon after.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/11.webp" alt="Executor Arren giving The Scarlet Crusade, with the talking head showing his model and the quest text" loading="lazy">
+          <figcaption>Executor Arren in the talking head. The subtitle stopped after six lines; long text now pages along with the voice.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/18.png" alt="The narrator's recap of The Scarlet Crusade in the talking head" loading="lazy">
+          <figcaption>After the turn-in, the narrator: "The Crusade hunts all undead, Scourge or Forsaken alike…"</figcaption>
+        </figure>
+        <figure>
+          <img src="img/13.webp" alt="The journal's story tab showing The Scarlet Menace chapter in Tirisfal Glades" loading="lazy">
+          <figcaption>An earlier version of the journal. Tirisfal Glades appears twice in the list on the left; that got fixed soon after.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/14.webp" alt="The Characters tab showing Executor Arren's model, bio and your dealings with him" loading="lazy">
+          <figcaption>The Characters tab: Executor Arren, his bio and your dealings. It later got a model you can turn and zoom.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/15.png" alt="A book pin on the world map near Deathknell for The Scarlet Menace" loading="lazy">
+          <figcaption>A chapter pin on the world map, near Deathknell. Clicking it opens the chapter in the journal.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- XV -->
+  <section class="chapter" id="casting">
+    <div class="when"><span class="num">Chapter XV</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The casting rounds</h2>
+        <p>Testing in Tirisfal, Gordo turned out to speak with a soft girl's voice. Every undead without a playable race got the same "restless ghost" voice, and hundreds of monsters, from harpies to ogres, got a generic adventurer. So the voices are now cast by each NPC's 3D model: abominations, ogres, gnolls, kobolds, harpies, dryads, kids and high elves each have their own voice family, and the model also tells the voice when a nameless NPC is a woman.</p>
+        <p>Then the bigger question: many lines sounded flat. I ran four listening rounds on the same quest lines. New voices designed per character came out higher and less manly than the ones I liked. A paid premium model acted better and said names better, but not by enough to be worth it for now. Voices for every race and sex, sound effects per race to make them less human: some good, some robotic. In the end the answer was simple. I kept the voices I already liked and only changed how they are cloned, so the model phrases each line itself instead of copying a flat reading. The gnome men, which sounded like women, and the abominations got new voices of their own.</p>
+      </div>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/zygand_before.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Executor Zygand, before <small>the same voice, flat reading</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/zygand_livelier.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Executor Zygand, after <small>same voice, livelier</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/gordo_before.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Gordo, before <small>the "restless ghost" voice</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/gordo_after.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Gordo, after <small>a real abomination</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <ul class="objectives">
+        <li class="done">Voices cast by the NPC's model: about 30 new families for monsters, kids and high elves</li>
+        <li class="done">Guards give directions, and the pages behind NPCs' options are voiced too: 4,615 more lines</li>
+        <li class="done">Every line re-rendered in the livelier delivery; the old recordings keep playing until each is replaced</li>
+        <li class="done">New voices are picked from several candidates and checked for pitch, so a man never comes out as a girl again</li>
+        <li class="done">Lines with no voice at all render first, so the beta doesn't wait for the re-render</li>
+      </ul>
+    </div>
+  </section>
+  <!-- XVI -->
+  <section class="chapter" id="new-cast">
+    <div class="when"><span class="num">Chapter XVI</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>A new cast</h2>
+        <p>The free voice model always made a human doing a voice: the orc was a man putting on a deep voice, the gnome sounded like a girl. So I built a small casting studio to listen through every voice in one place, and tried ElevenLabs' voice design on the four characters that bothered me most: an orc, a dwarf, a Forsaken and Gordo. It was a different league. Orcs sounded like orcs.</p>
+        <p>Having ElevenLabs read all 28,000 lines would have cost well over a thousand dollars. So ElevenLabs only designs the voices, and the free model on my PC clones them and speaks every line. To my ears that came close enough to the real thing. The whole cast, 93 voices for every race and sex, the monsters and the high elves, took about 15,000 credits. ElevenLabs won't design children's voices, so the kids keep theirs, and the narrator and my gnome stay as they were. Every line is now being re-voiced with the new cast, and the beta goes out once levels 1 to 30 are done.</p>
+      </div>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/cast_orc.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Orc <small>a quest line in the new cast</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/cast_dwarf.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Dwarf <small>a quest line in the new cast</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/cast_forsaken.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Forsaken <small>a quest line in the new cast</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/cast_gordo.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Gordo <small>the abomination, finally</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/cast_tauren.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Tauren <small>audition line</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/cast_troll_woman.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Troll woman <small>audition line</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/cast_goblin.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Goblin <small>audition line</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <ul class="objectives">
+        <li class="done">93 voices designed in ElevenLabs, each picked from three candidates and checked for pitch</li>
+        <li class="done">Every line spoken by the free model on my PC, cloning the new voices</li>
+        <li class="done">The game's own "Greetings" clips are muted so they no longer talk over the voices</li>
+        <li class="done">The beta only carries levels 1 to 30; later zones follow one at a time</li>
+      </ul>
+    </div>
+  </section>
+  <!-- XVII -->
+  <section class="chapter" id="public-beta">
+    <div class="when"><span class="num">Chapter XVII</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>The first public beta</h2>
+        <p>At some point I stopped waiting for the new cast to reach every line. It's a beta. So the rule became simple: as soon as every line from level 1 to 30 had a voice, old cast or new, it ships. The last few hundred were long book pages, and they finished overnight while I had Blender and Unity open for my other project.</p>
+        <p>This morning all 15,871 lines had a voice. I built the release, checked that every line in the packs had its audio file, and uploaded Chronicle 1.0.0-beta.1 to CurseForge: the addon itself and three voice packs, Kalimdor, the Eastern Kingdoms and Books &amp; Adventures. They're waiting for CurseForge's approval now. Once the packs are approved, the addon will install them automatically. Meanwhile the PC keeps rendering levels 31 and up, and the new cast keeps replacing the old voices for the next update.</p>
+      </div>
+      <ul class="objectives">
+        <li class="done">Every line from level 1 to 30 voiced: 15,871 of 15,871</li>
+        <li class="done">Chronicle 1.0.0-beta.1 uploaded to CurseForge, with three voice packs (about 870 MB)</li>
+        <li>Approval from CurseForge, then the packs install together with the addon</li>
+        <li>Levels 31 to 60, released a few zones at a time</li>
+      </ul>
+    </div>
+  </section>
+  <!-- XVIII -->
+  <section class="chapter" id="after-launch">
+    <div class="when"><span class="num">Chapter XVIII</span></div>
+    <div class="body">
+      <div class="prose">
+        <h2>After launch</h2>
+        <p>The first reports were all the same: people installed Chronicle and heard nothing. The CurseForge app had skipped the voice packs. It took a while to find out why. The app only installs dependencies that are marked as a release, and all my files were marked beta. Once that was fixed, one click on Chronicle brought all four along. For anyone who still ends up without them, Chronicle now shows a popup that says exactly what to install.</p>
+        <p>I posted it on Reddit, and the replies were better than I hoped. People liked the story side most. A few don't like AI voices, which is fair, so there's now a "journal only" switch that turns every voice off. Another addon developer offered to work together, and I opened a Discord for bug reports and for sharing recordings of the new Forever quests.</p>
+        <p>Two things got a lot better in the voices. Long lines used to be rendered in pieces and glued together, so the mood could change halfway through a sentence. Now every line is read in one go. And the narrator got a new voice: an epic fantasy storyteller that finally says "Executor" the way the game does.</p>
+      </div>
+      <div class="listen-list">
+        <div class="listen" data-src="audio/narrator_new.mp3"><button type="button">Listen</button><div class="meta"><span class="title">The new narrator <small>Night Web's Hollow recap</small></span><div class="bar"><i></i></div></div></div>
+        <div class="listen" data-src="audio/arren_one_piece.mp3"><button type="button">Listen</button><div class="meta"><span class="title">Executor Arren <small>The Scarlet Crusade, read in one go</small></span><div class="bar"><i></i></div></div></div>
+      </div>
+      <ul class="objectives">
+        <li class="done">Voice packs install together with Chronicle in the CurseForge app</li>
+        <li class="done">"Journal only" option, an Options button in the journal, and zones you can fold away</li>
+        <li class="done">Fixed a Lua error when opening the world map</li>
+        <li class="done">A Discord for feedback and shared recordings</li>
+        <li class="done">New narrator voice, and every line read in one take</li>
+        <li>The new narrator and one-take lines in the next voice update</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Made by Kontuu. Classic quest data from the cMaNGOS project; NPC locations from QuestieDB; voices designed with ElevenLabs and rendered locally with Qwen3 TTS. All screenshots from the WoW: Forever beta.
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var current = null;
+    var audio = new Audio();
+    audio.preload = "none";
+
+    function reset(row) {
+      if (!row) return;
+      row.querySelector("button").textContent = "Listen";
+      row.querySelector(".bar i").style.width = "0";
+    }
+
+    audio.addEventListener("timeupdate", function () {
+      if (!current || !audio.duration) return;
+      current.querySelector(".bar i").style.width = (audio.currentTime / audio.duration * 100) + "%";
+    });
+    audio.addEventListener("ended", function () { reset(current); current = null; });
+    audio.addEventListener("error", function () {
+      if (current) current.querySelector("button").textContent = "Unavailable";
+      current = null;
+    });
+
+    document.querySelectorAll(".listen").forEach(function (row) {
+      row.querySelector("button").addEventListener("click", function () {
+        if (current === row) {
+          audio.pause();
+          reset(row);
+          current = null;
+          return;
+        }
+        reset(current);
+        current = row;
+        audio.src = row.getAttribute("data-src");
+        row.querySelector("button").textContent = "Stop";
+        var p = audio.play();
+        if (p && p.catch) p.catch(function () { reset(row); current = null; });
+      });
+    });
+  })();
+</script>
+
+</html>
